@@ -1,6 +1,6 @@
 // Встроенный плеер YouTube не играет на странице расширения (ошибки 152/153):
 // ему нужен Referer обычного сайта. Подставляем его только для плееров
-// youtube-nocookie.com, которые использует мультиэкран.
+// youtube.com/embed, которые использует мультиэкран.
 const RULE_ID = 1;
 async function setupRules() {
   await chrome.declarativeNetRequest.updateDynamicRules({
@@ -13,7 +13,7 @@ async function setupRules() {
         requestHeaders: [{ header: "referer", operation: "set", value: "https://example.com/" }]
       },
       condition: {
-        urlFilter: "||youtube-nocookie.com/embed/",
+        regexFilter: "^https://(www\\.)?youtube(-nocookie)?\\.com/embed/",
         resourceTypes: ["sub_frame"]
       }
     }]
