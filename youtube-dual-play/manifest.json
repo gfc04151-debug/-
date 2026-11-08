@@ -1,27 +1,31 @@
 {
   "manifest_version": 3,
   "name": "YouTube Dual Play",
-  "version": "1.0.0",
-  "description": "Позволяет нескольким вкладкам YouTube играть одновременно: без автопаузы, без замедления в фоне, с отдельной громкостью для каждой вкладки.",
-  "permissions": ["storage"],
-  "host_permissions": ["*://*.youtube.com/*"],
+  "version": "1.1.0",
+  "description": "Несколько видео YouTube одновременно: мультиэкран 2×2, без автопаузы, без замедления в фоне, своя громкость у каждого видео.",
+  "permissions": ["storage", "declarativeNetRequest"],
+  "host_permissions": ["*://*.youtube.com/*", "*://*.youtube-nocookie.com/*"],
+  "background": { "service_worker": "background.js" },
   "action": {
     "default_title": "YouTube Dual Play",
     "default_popup": "popup.html"
   },
   "content_scripts": [
     {
-      "matches": ["*://*.youtube.com/*"],
+      "matches": ["*://*.youtube.com/*", "*://*.youtube-nocookie.com/*"],
       "js": ["inject.js"],
       "run_at": "document_start",
       "all_frames": true,
       "world": "MAIN"
     },
     {
-      "matches": ["*://*.youtube.com/*"],
+      "matches": ["*://*.youtube.com/*", "*://*.youtube-nocookie.com/*"],
       "js": ["bridge.js"],
       "run_at": "document_start",
       "all_frames": true
     }
+  ],
+  "web_accessible_resources": [
+    { "resources": ["inject.js"], "matches": ["*://*.youtube.com/*", "*://*.youtube-nocookie.com/*"] }
   ]
 }

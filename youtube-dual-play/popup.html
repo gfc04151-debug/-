@@ -2,24 +2,40 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    body { font: 14px system-ui, sans-serif; width: 240px; margin: 0; padding: 14px; background: #181818; color: #f1f1f1; }
-    h1 { font-size: 15px; margin: 0 0 12px; }
-    label { display: flex; align-items: center; justify-content: space-between; margin: 10px 0; }
+    body { font: 15px system-ui, sans-serif; min-width: 260px; margin: 0; padding: 14px; background: #181818; color: #f1f1f1; }
+    h1 { font-size: 16px; margin: 0 0 12px; }
+    label { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 10px 0; }
     input[type=range] { width: 100%; accent-color: #ff0033; }
-    input[type=checkbox] { width: 18px; height: 18px; accent-color: #ff0033; }
+    input[type=checkbox] { width: 20px; height: 20px; accent-color: #ff0033; }
+    button { font: inherit; border: 0; border-radius: 8px; padding: 10px; background: #333; color: #fff; width: 100%; margin-top: 8px; }
+    button.main { background: #ff0033; }
+    .slots { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    .slots button { margin: 0; }
     .hint { color: #aaa; font-size: 12px; margin-top: 10px; }
-    #volBox.disabled { opacity: .4; pointer-events: none; }
+    .hidden { display: none; }
+    .disabled { opacity: .4; pointer-events: none; }
+    hr { border: 0; border-top: 1px solid #333; margin: 14px 0; }
   </style>
 </head>
 <body>
   <h1>▶▶ YouTube Dual Play</h1>
-  <label>Одновременное воспроизведение <input type="checkbox" id="enabled"></label>
+  <button class="main" id="openMulti">Открыть мультиэкран (4 видео)</button>
+  <div id="addBox" class="hidden">
+    <div class="hint">Добавить это видео в окно мультиэкрана:</div>
+    <div class="slots">
+      <button data-slot="0">1</button><button data-slot="1">2</button>
+      <button data-slot="2">3</button><button data-slot="3">4</button>
+    </div>
+  </div>
+  <hr>
+  <label>Не ставить на паузу в фоне <input type="checkbox" id="enabled"></label>
   <div id="volBox">
     <label>Громкость этой вкладки <span id="volText">—</span></label>
     <input type="range" id="volume" min="0" max="100" step="1">
   </div>
-  <div class="hint" id="hint">Если что-то не работает — обновите вкладки YouTube (F5).</div>
+  <div class="hint" id="status">После установки обновите вкладки YouTube.</div>
   <script src="popup.js"></script>
 </body>
 </html>
