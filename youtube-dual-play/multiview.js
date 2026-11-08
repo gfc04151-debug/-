@@ -31,7 +31,7 @@ function render(p, id) {
     return;
   }
   const f = document.createElement("iframe");
-  f.src = `https://www.youtube.com/embed/${id}?enablejsapi=1&playsinline=1&autoplay=1&rel=0`;
+  f.src = `https://www.youtube.com/embed/${id}?ytdual=1&enablejsapi=1&playsinline=1&autoplay=1&rel=0`;
   f.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";
   f.allowFullscreen = true;
   f.referrerPolicy = "strict-origin-when-cross-origin";

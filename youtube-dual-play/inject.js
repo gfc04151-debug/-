@@ -193,8 +193,29 @@
   // ---------- Скорость и качество по умолчанию ----------
   // quality: tiny = 144p, small = 240p, medium = 360p, large = 480p, hd720 = 720p.
   const player = () => document.querySelector("#movie_player, .html5-video-player");
+  // Только для плееров мультиэкрана (у них в адресе есть ytdual=1).
+  // Обычные вкладки YouTube не трогаем.
+  const inMultiview = /[?&]ytdual=1/.test(location.search);
+  // YouTube запоминает качество, скорость и громкость для всего сайта.
+  // Мультиэкран не должен менять эти настройки в обычных вкладках.
+  const SHARED_KEYS = /^yt-player-(quality|playback-rate|volume)/;
+  if (inMultiview) {
+    const realSetItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key, value) {
+      if (this === window.localStorage && SHARED_KEYS.test(String(key))) return;
+      return realSetItem.call(this, key, value);
+    };
+  } else {
+    // Один раз убираем 144p, которое прошлая версия успела сохранить.
+    try {
+      if (!localStorage.getItem("ytdual-cleaned-v1")) {
+        localStorage.removeItem("yt-player-quality");
+        localStorage.setItem("ytdual-cleaned-v1", "1");
+      }
+    } catch (_) {}
+  }
   const applyDefaults = (v, force) => {
-    if (!(v instanceof HTMLVideoElement)) return;
+    if (!inMultiview || !(v instanceof HTMLVideoElement)) return;
     const key = v.currentSrc || v.src;
     if (!force && v.__ytDualAppliedFor === key) return;
     v.__ytDualAppliedFor = key;
@@ -215,7 +236,7 @@
   // если скорость поменял не пользователь.
   document.addEventListener("ratechange", (e) => {
     const v = e.target;
-    if (state.speed && v instanceof HTMLVideoElement && !userRecentlyActed() &&
+    if (inMultiview && state.speed && v instanceof HTMLVideoElement && !userRecentlyActed() &&
         Math.abs(v.playbackRate - state.speed) > 0.001) {
       v.playbackRate = state.speed;
     }
