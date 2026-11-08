@@ -22,7 +22,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
     const onMsg = (e) => {
       if (e.source !== window || !e.data || e.data.__ytDual !== "to-ext") return;
       window.removeEventListener("message", onMsg);
-      reply({ volume: e.data.volume });
+      reply({ volume: e.data.volume, pings: e.data.pings, signedIn: e.data.signedIn });
     };
     window.addEventListener("message", onMsg);
     send({ query: true });

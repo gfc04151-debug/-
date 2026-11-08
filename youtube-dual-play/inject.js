@@ -45,7 +45,7 @@
   };
 
   const swallow = (e) => { if (state.enabled) e.stopImmediatePropagation(); };
-  for (const type of ["visibilitychange", "webkitvisibilitychange", "pagehide", "freeze"]) {
+  for (const type of ["visibilitychange", "webkitvisibilitychange"]) {
     document.addEventListener(type, swallow, true);
     window.addEventListener(type, swallow, true);
   }
@@ -221,6 +221,32 @@
     }
   }, true);
 
+  // ---------- Проверка: отправляет ли YouTube данные о просмотре ----------
+  // Запись в историю появляется после запроса /api/stats/playback.
+  // Если его нет или он с ошибкой — историю блокирует что-то другое
+  // (блокировщик рекламы, настройки браузера или аккаунта).
+  const pings = { playback: 0, watchtime: 0, failed: 0 };
+  try {
+    new PerformanceObserver((list) => {
+      for (const e of list.getEntries()) {
+        const kind = /\/api\/stats\/playback/.test(e.name) ? "playback"
+          : /\/api\/stats\/watchtime/.test(e.name) ? "watchtime" : null;
+        if (!kind) continue;
+        pings[kind]++;
+        if (e.responseStatus !== undefined && e.responseStatus !== 0 && e.responseStatus >= 400) pings.failed++;
+      }
+    }).observe({ type: "resource", buffered: true });
+  } catch (_) {}
+  // Запросы, которые не дошли (заблокированы), в список не попадают —
+  // ловим ошибки отдельно.
+  const realFetch = window.fetch;
+  window.fetch = function (input, init) {
+    const url = typeof input === "string" ? input : (input && input.url) || "";
+    const p = realFetch.apply(this, arguments);
+    if (/\/api\/stats\/(playback|watchtime)/.test(url)) p.catch(() => { pings.failed++; });
+    return p;
+  };
+
   // ---------- 3. Без окна "Видео приостановлено. Продолжить просмотр?" ----------
   setInterval(() => {
     if (!state.enabled) return;
@@ -268,7 +294,8 @@
     }
     if (d.query) {
       const v = document.querySelector("video");
-      window.postMessage({ __ytDual: "to-ext", volume: v ? v.volume : 1, enabled: state.enabled }, "*");
+      window.postMessage({ __ytDual: "to-ext", volume: v ? v.volume : 1, enabled: state.enabled,
+        pings, signedIn: /(^|; )(SID|__Secure-3PSID|SAPISID)=/.test(document.cookie) || !!document.querySelector("#avatar-btn, ytm-topbar-menu-button-renderer img, button#avatar-btn") }, "*");
     }
   });
 })();

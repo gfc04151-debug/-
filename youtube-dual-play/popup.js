@@ -58,6 +58,15 @@ function videoId(url) {
   if (!tab || !/youtube\.com/.test(tab.url || "")) { $("volBox").classList.add("disabled"); return; }
   chrome.tabs.sendMessage(tab.id, { type: "getState" }, { frameId: 0 }, (res) => {
     if (chrome.runtime.lastError || !res) { $("volBox").classList.add("disabled"); return; }
+    if (res.pings) {
+      const { playback, watchtime, failed } = res.pings;
+      let text = `История: YouTube отправил сигналов просмотра — ${playback + watchtime}`;
+      if (failed) text += `, из них не дошло — ${failed}. Похоже, их блокирует блокировщик рекламы.`;
+      else if (playback + watchtime === 0) text += ". Включите видео и подождите 30 секунд. Если останется 0 — их что-то блокирует (блокировщик рекламы в Kiwi или uBlock).";
+      else text += " — нормально. Если в истории пусто, проверьте, что история включена в аккаунте.";
+      if (res.signedIn === false) text += " Похоже, вы не вошли в аккаунт YouTube в этой вкладке.";
+      $("history").textContent = text;
+    }
     $("volume").value = Math.round(res.volume * 100);
     $("volText").textContent = $("volume").value + "%";
   });
