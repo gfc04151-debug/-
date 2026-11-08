@@ -1,12 +1,16 @@
 const $ = (id) => document.getElementById(id);
 const MULTI_URL = chrome.runtime.getURL("multiview.html");
 
-chrome.storage.local.get({ enabled: true, silent: false }, ({ enabled, silent }) => {
+const modeInputs = document.querySelectorAll('input[name="mode"]');
+chrome.storage.local.get({ enabled: true, mode: "mix" }, ({ enabled, mode }) => {
   $("enabled").checked = enabled;
-  $("silent").checked = silent;
+  modeInputs.forEach((r) => { r.checked = r.value === mode; });
 });
 $("enabled").addEventListener("change", () => chrome.storage.local.set({ enabled: $("enabled").checked }));
-$("silent").addEventListener("change", () => chrome.storage.local.set({ silent: $("silent").checked }));
+modeInputs.forEach((r) => r.addEventListener("change", () => {
+  chrome.storage.local.set({ mode: r.value });
+  if (r.value === "mix") $("status").textContent = "Коснитесь один раз каждой вкладки YouTube, чтобы в ней включился звук.";
+}));
 
 async function openMulti() {
   const tabs = await chrome.tabs.query({ url: MULTI_URL });

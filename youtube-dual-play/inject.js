@@ -15,7 +15,10 @@
   window.__ytDualPlay = true;
   try { document.documentElement.setAttribute("data-yt-dual", "1"); } catch (_) {}
 
-  const state = { enabled: true, silent: false, lastUserAction: 0 };
+  // mode: "normal" — как обычно; "silent" — все вкладки без звука;
+  // "mix" — звук есть, но вкладки не отбирают его друг у друга.
+  const state = { enabled: true, mode: "mix", lastUserAction: 0 };
+  const forcedMute = () => state.enabled && (state.mode === "silent" || state.mode === "mix");
   const USER_WINDOW_MS = 1500;
 
   // ---------- 1. Страница всегда "видима" ----------
@@ -98,28 +101,87 @@
     if (!state.enabled || v.ended || !v.__ytDualPlaying) return;
     const now = Date.now();
     v.__ytDualResumes = (v.__ytDualResumes || []).filter((t) => now - t < 15000);
-    if (!state.silent && v.__ytDualResumes.length >= 3) { v.__ytDualPlaying = false; return; }
+    if (!forcedMute() && v.__ytDualResumes.length >= 3) { v.__ytDualPlaying = false; return; }
     v.__ytDualResumes.push(now);
     setTimeout(() => {
       if (v.paused && !v.ended && !userRecentlyActed()) v.play().catch(() => {});
-    }, state.silent ? 1000 : 300);
+    }, forcedMute() ? 1000 : 300);
   }, true);
   document.addEventListener("play", (e) => {
     if (e.target instanceof HTMLMediaElement) e.target.__ytDualUserPaused = false;
   }, true);
 
-  // ---------- Тихий режим: звук выключен, видео играет ----------
+  // ---------- Тихий режим и режим "mix" ----------
+  // Видео с выключенным звуком не забирает звук у других вкладок (на Android
+  // звук может принадлежать только одной вкладке). В режиме "mix" звук
+  // берём из видео отдельно и играем через Web Audio — так все вкладки
+  // звучат одновременно и не останавливают друг друга.
   const silence = (m) => {
-    if (state.enabled && state.silent && m instanceof HTMLMediaElement && !m.muted) m.muted = true;
+    if (forcedMute() && m instanceof HTMLMediaElement && !m.muted) m.muted = true;
   };
+
+  let audioCtx = null;
+  const getCtx = () => {
+    if (!audioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      audioCtx = new AC();
+    }
+    if (audioCtx.state === "suspended") audioCtx.resume().catch(() => {});
+    return audioCtx;
+  };
+  // Браузер разрешает включить звук только после касания вкладки.
+  for (const type of ["pointerdown", "keydown", "touchend"]) {
+    window.addEventListener(type, () => { if (state.mode === "mix" && state.enabled) getCtx(); }, true);
+  }
+
+  const mixGain = (v) => (v.__ytDualGain ? v.__ytDualGain.gain : null);
+  const connectTrack = (v) => {
+    const ctx = getCtx();
+    if (!ctx || !v.__ytDualStream) return;
+    const track = v.__ytDualStream.getAudioTracks().find((t) => t.readyState === "live");
+    if (!track || v.__ytDualTrack === track) return;
+    if (v.__ytDualSource) { try { v.__ytDualSource.disconnect(); } catch (_) {} }
+    if (!v.__ytDualGain) {
+      v.__ytDualGain = ctx.createGain();
+      v.__ytDualGain.connect(ctx.destination);
+    }
+    v.__ytDualGain.gain.value = v.volume;
+    v.__ytDualSource = ctx.createMediaStreamSource(new MediaStream([track]));
+    v.__ytDualSource.connect(v.__ytDualGain);
+    v.__ytDualTrack = track;
+  };
+  const startMix = (v) => {
+    if (!(v instanceof HTMLVideoElement) || state.mode !== "mix" || !state.enabled) return;
+    silence(v);
+    if (!v.__ytDualStream) {
+      try {
+        v.__ytDualStream = (v.captureStream || v.mozCaptureStream).call(v);
+        v.__ytDualStream.addEventListener("addtrack", () => connectTrack(v));
+      } catch (_) { return; }
+    }
+    connectTrack(v);
+    if (v.__ytDualGain) v.__ytDualGain.gain.value = v.volume;
+  };
+  const stopMix = () => {
+    document.querySelectorAll("video").forEach((v) => {
+      if (v.__ytDualGain) v.__ytDualGain.gain.value = 0;
+    });
+  };
+
   for (const type of ["loadstart", "loadedmetadata", "play", "playing", "volumechange"]) {
-    document.addEventListener(type, (e) => silence(e.target), true);
+    document.addEventListener(type, (e) => {
+      silence(e.target);
+      if (state.mode === "mix") startMix(e.target);
+      else if (e.target && e.target.__ytDualGain) e.target.__ytDualGain.gain.value = 0;
+    }, true);
   }
   // Видео, которое не запустилось само (вкладка открыта в фоне), запускаем.
   const kick = () => {
-    if (!state.enabled || !state.silent) return;
+    if (!forcedMute()) return;
     document.querySelectorAll("video").forEach((v) => {
       silence(v);
+      startMix(v);
       if (v.paused && !v.ended && !v.__ytDualUserPaused && v.readyState >= 2 && v.isConnected) {
         v.play().catch(() => {});
       }
@@ -156,10 +218,12 @@
     if (e.source !== window || !e.data || e.data.__ytDual !== "to-page") return;
     const d = e.data;
     if (typeof d.enabled === "boolean") state.enabled = d.enabled;
-    if (typeof d.silent === "boolean") {
-      state.silent = d.silent;
-      if (d.silent) kick();
-      else document.querySelectorAll("video, audio").forEach((m) => { m.muted = false; });
+    if (typeof d.mode === "string" && d.mode !== state.mode) {
+      const was = state.mode;
+      state.mode = d.mode;
+      if (d.mode !== "mix") stopMix();
+      if (forcedMute()) kick();
+      else if (was !== "normal") document.querySelectorAll("video, audio").forEach((m) => { m.muted = false; });
     }
     if (typeof d.volume === "number") applyVolume(d.volume);
     if (d.pauseAll) {
