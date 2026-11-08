@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "YouTube Dual Play",
+  "version": "1.0.0",
+  "description": "Позволяет нескольким вкладкам YouTube играть одновременно: без автопаузы, без замедления в фоне, с отдельной громкостью для каждой вкладки.",
+  "permissions": ["storage"],
+  "host_permissions": ["*://*.youtube.com/*"],
+  "action": {
+    "default_title": "YouTube Dual Play",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.youtube.com/*"],
+      "js": ["inject.js"],
+      "run_at": "document_start",
+      "all_frames": true,
+      "world": "MAIN"
+    },
+    {
+      "matches": ["*://*.youtube.com/*"],
+      "js": ["bridge.js"],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font: 14px system-ui, sans-serif; width: 240px; margin: 0; padding: 14px; background: #181818; color: #f1f1f1; }
+    h1 { font-size: 15px; margin: 0 0 12px; }
+    label { display: flex; align-items: center; justify-content: space-between; margin: 10px 0; }
+    input[type=range] { width: 100%; accent-color: #ff0033; }
+    input[type=checkbox] { width: 18px; height: 18px; accent-color: #ff0033; }
+    .hint { color: #aaa; font-size: 12px; margin-top: 10px; }
+    #volBox.disabled { opacity: .4; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <h1>▶▶ YouTube Dual Play</h1>
+  <label>Одновременное воспроизведение <input type="checkbox" id="enabled"></label>
+  <div id="volBox">
+    <label>Громкость этой вкладки <span id="volText">—</span></label>
+    <input type="range" id="volume" min="0" max="100" step="1">
+  </div>
+  <div class="hint" id="hint">Если что-то не работает — обновите вкладки YouTube (F5).</div>
+  <script src="popup.js"></script>
+</body>
+</html>
