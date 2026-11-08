@@ -1,31 +1,63 @@
 {
   "manifest_version": 3,
   "name": "YouTube Dual Play",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Несколько видео YouTube одновременно: мультиэкран 2×2, без автопаузы, без замедления в фоне, своя громкость у каждого видео.",
-  "permissions": ["storage", "declarativeNetRequest"],
-  "host_permissions": ["*://*.youtube.com/*", "*://*.youtube-nocookie.com/*"],
-  "background": { "service_worker": "background.js" },
+  "permissions": [
+    "storage",
+    "declarativeNetRequest"
+  ],
+  "host_permissions": [
+    "*://*.youtube.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "action": {
     "default_title": "YouTube Dual Play",
     "default_popup": "popup.html"
   },
   "content_scripts": [
     {
-      "matches": ["*://*.youtube.com/*", "*://*.youtube-nocookie.com/*"],
-      "js": ["inject.js"],
+      "matches": [
+        "*://*.youtube.com/*"
+      ],
+      "js": [
+        "inject.js"
+      ],
       "run_at": "document_start",
       "all_frames": true,
       "world": "MAIN"
     },
     {
-      "matches": ["*://*.youtube.com/*", "*://*.youtube-nocookie.com/*"],
-      "js": ["bridge.js"],
+      "matches": [
+        "*://*.youtube.com/*"
+      ],
+      "js": [
+        "bridge.js"
+      ],
       "run_at": "document_start",
       "all_frames": true
+    },
+    {
+      "matches": [
+        "*://www.youtube.com/robots.txt*",
+        "*://m.youtube.com/robots.txt*"
+      ],
+      "js": [
+        "multiview.js"
+      ],
+      "run_at": "document_end"
     }
   ],
   "web_accessible_resources": [
-    { "resources": ["inject.js"], "matches": ["*://*.youtube.com/*", "*://*.youtube-nocookie.com/*"] }
+    {
+      "resources": [
+        "inject.js"
+      ],
+      "matches": [
+        "*://*.youtube.com/*"
+      ]
+    }
   ]
 }

@@ -1,5 +1,5 @@
 const $ = (id) => document.getElementById(id);
-const MULTI_URL = chrome.runtime.getURL("multiview.html");
+const MULTI_URL = "https://www.youtube.com/robots.txt#ytdual";
 
 const modeInputs = document.querySelectorAll('input[name="mode"]');
 chrome.storage.local.get({ enabled: true, mode: "normal" }, ({ enabled, mode }) => {
@@ -19,7 +19,8 @@ modeInputs.forEach((r) => r.addEventListener("change", () => {
 }));
 
 async function openMulti() {
-  const tabs = await chrome.tabs.query({ url: MULTI_URL });
+  const tabs = (await chrome.tabs.query({ url: "*://*.youtube.com/robots.txt*" }))
+    .filter((t) => (t.url || "").includes("#ytdual"));
   if (tabs.length) {
     await chrome.tabs.update(tabs[0].id, { active: true });
   } else {

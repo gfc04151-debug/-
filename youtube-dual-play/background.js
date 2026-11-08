@@ -1,43 +1,26 @@
-// Правила для окон мультиэкрана.
-// 1) Встроенный плеер YouTube не играет на странице расширения (ошибки 152/153):
-//    ему нужен Referer обычного сайта.
-// 2) Полная страница YouTube запрещает показывать себя внутри другой страницы
-//    (заголовки X-Frame-Options и CSP). Убираем их, но только для окон,
-//    которые открыло само расширение.
+// Окна мультиэкрана — это страницы YouTube внутри страницы YouTube.
+// На планшете www.youtube.com перенаправляет на m.youtube.com, и YouTube
+// запрещает показывать такую страницу в окне (заголовок X-Frame-Options).
+// Убираем этот запрет, но только для окон внутри YouTube.
 async function setupRules() {
   await chrome.declarativeNetRequest.updateDynamicRules({
     removeRuleIds: [1, 2],
-    addRules: [
-      {
-        id: 1,
-        priority: 1,
-        action: {
-          type: "modifyHeaders",
-          requestHeaders: [{ header: "referer", operation: "set", value: "https://example.com/" }]
-        },
-        condition: {
-          regexFilter: "^https://(www\\.)?youtube(-nocookie)?\\.com/embed/",
-          resourceTypes: ["sub_frame"],
-          initiatorDomains: [chrome.runtime.id]
-        }
+    addRules: [{
+      id: 2,
+      priority: 1,
+      action: {
+        type: "modifyHeaders",
+        responseHeaders: [
+          { header: "x-frame-options", operation: "remove" },
+          { header: "content-security-policy", operation: "remove" }
+        ]
       },
-      {
-        id: 2,
-        priority: 1,
-        action: {
-          type: "modifyHeaders",
-          responseHeaders: [
-            { header: "x-frame-options", operation: "remove" },
-            { header: "content-security-policy", operation: "remove" }
-          ]
-        },
-        condition: {
-          requestDomains: ["youtube.com"],
-          resourceTypes: ["sub_frame"],
-          initiatorDomains: [chrome.runtime.id]
-        }
+      condition: {
+        requestDomains: ["youtube.com"],
+        initiatorDomains: ["youtube.com"],
+        resourceTypes: ["sub_frame"]
       }
-    ]
+    }]
   });
 }
 chrome.runtime.onInstalled.addListener(() => {

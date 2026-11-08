@@ -22,6 +22,7 @@
   // страница расширения). Адрес YouTube может потом поменять, поэтому
   // проверяем сразу при загрузке.
   const inMultiview = window.top !== window && (
+    window.name === "ytdual-frame" ||
     /[?&]ytdual=1/.test(location.search) ||
     Array.from(location.ancestorOrigins || []).some((o) => o.startsWith("chrome-extension://")));
   // Окна мультиэкрана всегда без звука: так они играют и не забирают
