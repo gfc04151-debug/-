@@ -40,10 +40,7 @@ function render(p, id) {
   f.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";
   f.allowFullscreen = true;
   f.referrerPolicy = "strict-origin-when-cross-origin";
-  f.addEventListener("load", () => {
-    command(p, "volume", p.volume / 100);
-    if (p.muted) command(p, "mute", true);
-  });
+  f.addEventListener("load", () => command(p, "play"));
   box.appendChild(f);
 }
 
@@ -54,26 +51,18 @@ for (let i = 0; i < 4; i++) {
     <div class="player"></div>
     <div class="bar">
       <input type="text" placeholder="Ссылка на видео ${i + 1}">
-      <button title="Выключить звук">🔊</button>
-      <input type="range" min="0" max="100" value="100" title="Громкость">
       <button title="Убрать">✕</button>
     </div>`;
   grid.appendChild(cell);
   const p = { cell, key: undefined, volume: 100, muted: false };
   players.push(p);
-  const [input, muteBtn, vol, clearBtn] = cell.querySelectorAll(".bar > *");
+  const [input, clearBtn] = cell.querySelectorAll(".bar > *");
 
   input.addEventListener("change", () => {
     const id = videoId(input.value);
     if (id) setSlot(i, id);
     input.value = "";
   });
-  muteBtn.addEventListener("click", () => {
-    p.muted = !p.muted;
-    command(p, "mute", p.muted);
-    muteBtn.textContent = p.muted ? "🔇" : "🔊";
-  });
-  vol.addEventListener("input", () => { p.volume = +vol.value; command(p, "volume", p.volume / 100); });
   clearBtn.addEventListener("click", () => setSlot(i, ""));
 }
 

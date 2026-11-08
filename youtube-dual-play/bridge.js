@@ -1,7 +1,7 @@
 // Изолированный content script: передаёт настройки между popup и страницей.
 const send = (data) => window.postMessage({ __ytDual: "to-page", ...data }, "*");
 
-chrome.storage.local.get({ enabled: true, mode: "mix", speed: 0.25, quality: "tiny" },
+chrome.storage.local.get({ enabled: true, mode: "normal", speed: 0.25, quality: "tiny" },
   ({ enabled, mode, speed, quality }) => send({ enabled, mode, speed, quality }));
 chrome.storage.onChanged.addListener((changes) => {
   if (changes.enabled) send({ enabled: changes.enabled.newValue });

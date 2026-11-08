@@ -17,16 +17,16 @@
 
   // mode: "normal" — как обычно; "silent" — все вкладки без звука;
   // "mix" — звук есть, но вкладки не отбирают его друг у друга.
-  const state = { enabled: true, mode: "mix", speed: 0.25, quality: "tiny", lastUserAction: 0 };
+  const state = { enabled: true, mode: "normal", speed: 0.25, quality: "tiny", lastUserAction: 0 };
   // Мы внутри окна мультиэкрана? (в адресе ytdual=1 или нас встроила
   // страница расширения). Адрес YouTube может потом поменять, поэтому
   // проверяем сразу при загрузке.
   const inMultiview = window.top !== window && (
     /[?&]ytdual=1/.test(location.search) ||
     Array.from(location.ancestorOrigins || []).some((o) => o.startsWith("chrome-extension://")));
-  // Окна мультиэкрана находятся в одной вкладке и звук друг у друга
-  // не отбирают, поэтому режим "mix" им не нужен.
-  const mode = () => (inMultiview && state.mode === "mix" ? "normal" : state.mode);
+  // Окна мультиэкрана всегда без звука: так они играют и не забирают
+  // звук у обычной вкладки YouTube.
+  const mode = () => (inMultiview ? "silent" : state.mode);
   const forcedMute = () => state.enabled && (mode() === "silent" || mode() === "mix");
   const USER_WINDOW_MS = 1500;
 

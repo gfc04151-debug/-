@@ -2,7 +2,7 @@ const $ = (id) => document.getElementById(id);
 const MULTI_URL = chrome.runtime.getURL("multiview.html");
 
 const modeInputs = document.querySelectorAll('input[name="mode"]');
-chrome.storage.local.get({ enabled: true, mode: "mix" }, ({ enabled, mode }) => {
+chrome.storage.local.get({ enabled: true, mode: "normal" }, ({ enabled, mode }) => {
   $("enabled").checked = enabled;
   modeInputs.forEach((r) => { r.checked = r.value === mode; });
 });

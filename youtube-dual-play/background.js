@@ -40,5 +40,9 @@ async function setupRules() {
     ]
   });
 }
-chrome.runtime.onInstalled.addListener(setupRules);
+chrome.runtime.onInstalled.addListener(() => {
+  setupRules();
+  // Обычные вкладки — с обычным звуком.
+  chrome.storage.local.set({ mode: "normal" });
+});
 chrome.runtime.onStartup.addListener(setupRules);
