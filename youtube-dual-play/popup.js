@@ -6,6 +6,12 @@ chrome.storage.local.get({ enabled: true, mode: "mix" }, ({ enabled, mode }) => 
   $("enabled").checked = enabled;
   modeInputs.forEach((r) => { r.checked = r.value === mode; });
 });
+chrome.storage.local.get({ speed: 0.25, quality: "tiny" }, ({ speed, quality }) => {
+  $("speed").value = String(speed);
+  $("quality").value = quality;
+});
+$("speed").addEventListener("change", () => chrome.storage.local.set({ speed: +$("speed").value }));
+$("quality").addEventListener("change", () => chrome.storage.local.set({ quality: $("quality").value }));
 $("enabled").addEventListener("change", () => chrome.storage.local.set({ enabled: $("enabled").checked }));
 modeInputs.forEach((r) => r.addEventListener("change", () => {
   chrome.storage.local.set({ mode: r.value });

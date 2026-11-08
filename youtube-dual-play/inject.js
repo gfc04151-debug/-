@@ -17,7 +17,7 @@
 
   // mode: "normal" — как обычно; "silent" — все вкладки без звука;
   // "mix" — звук есть, но вкладки не отбирают его друг у друга.
-  const state = { enabled: true, mode: "mix", lastUserAction: 0 };
+  const state = { enabled: true, mode: "mix", speed: 0.25, quality: "tiny", lastUserAction: 0 };
   const forcedMute = () => state.enabled && (state.mode === "silent" || state.mode === "mix");
   const USER_WINDOW_MS = 1500;
 
@@ -190,6 +190,37 @@
   document.addEventListener("canplay", kick, true);
   setInterval(kick, 3000);
 
+  // ---------- Скорость и качество по умолчанию ----------
+  // quality: tiny = 144p, small = 240p, medium = 360p, large = 480p, hd720 = 720p.
+  const player = () => document.querySelector("#movie_player, .html5-video-player");
+  const applyDefaults = (v, force) => {
+    if (!(v instanceof HTMLVideoElement)) return;
+    const key = v.currentSrc || v.src;
+    if (!force && v.__ytDualAppliedFor === key) return;
+    v.__ytDualAppliedFor = key;
+    const p = player();
+    if (state.speed) {
+      try { if (p && p.setPlaybackRate) p.setPlaybackRate(state.speed); } catch (_) {}
+      v.playbackRate = state.speed;
+    }
+    if (state.quality && p) {
+      try { if (p.setPlaybackQualityRange) p.setPlaybackQualityRange(state.quality, state.quality); } catch (_) {}
+      try { if (p.setPlaybackQuality) p.setPlaybackQuality(state.quality); } catch (_) {}
+    }
+  };
+  for (const type of ["loadedmetadata", "playing"]) {
+    document.addEventListener(type, (e) => applyDefaults(e.target), true);
+  }
+  // YouTube иногда сам возвращает скорость 1 — ставим обратно,
+  // если скорость поменял не пользователь.
+  document.addEventListener("ratechange", (e) => {
+    const v = e.target;
+    if (state.speed && v instanceof HTMLVideoElement && !userRecentlyActed() &&
+        Math.abs(v.playbackRate - state.speed) > 0.001) {
+      v.playbackRate = state.speed;
+    }
+  }, true);
+
   // ---------- 3. Без окна "Видео приостановлено. Продолжить просмотр?" ----------
   setInterval(() => {
     if (!state.enabled) return;
@@ -218,6 +249,11 @@
     if (e.source !== window || !e.data || e.data.__ytDual !== "to-page") return;
     const d = e.data;
     if (typeof d.enabled === "boolean") state.enabled = d.enabled;
+    if ("speed" in d || "quality" in d) {
+      if ("speed" in d) state.speed = +d.speed || 0;
+      if ("quality" in d) state.quality = d.quality || "";
+      document.querySelectorAll("video").forEach((v) => applyDefaults(v, true));
+    }
     if (typeof d.mode === "string" && d.mode !== state.mode) {
       const was = state.mode;
       state.mode = d.mode;
