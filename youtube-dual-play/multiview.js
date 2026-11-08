@@ -35,6 +35,7 @@
         <button id="pauseAll">⏸ Все</button>
         <button id="login">Войти в аккаунт</button>
         <button id="reload">⟳</button>
+        <button id="keepAlive">Работа в фоне: выкл</button>
         <button id="toggleBars">Скрыть панели</button>
       </header>
       <div id="grid"></div>
@@ -115,6 +116,41 @@
   $("login").addEventListener("click", () => window.open(
     "https://accounts.google.com/ServiceLogin?service=youtube&continue=https%3A%2F%2Fwww.youtube.com%2F", "_blank"));
   $("reload").addEventListener("click", () => location.reload());
+
+  // ---------- Работа в фоне ----------
+  // Android замораживает фоновые вкладки без звука. Играем почти неслышный
+  // сигнал (около -60 дБ, ниже порога слуха при обычной громкости), чтобы
+  // браузер считал вкладку звучащей и не останавливал её.
+  // Браузер разрешает звук только после касания, поэтому включаем
+  // при первом нажатии в любом месте мультиэкрана.
+  let keepCtx = null;
+  const keepBtn = $("keepAlive");
+  function startKeepAlive() {
+    try {
+      if (!keepCtx) {
+        keepCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = keepCtx.createOscillator();
+        osc.frequency.value = 40;
+        const gain = keepCtx.createGain();
+        gain.gain.value = 0.001;
+        osc.connect(gain).connect(keepCtx.destination);
+        osc.start();
+        keepCtx.addEventListener("statechange", showKeepAlive);
+      }
+      if (keepCtx.state !== "running") keepCtx.resume().catch(() => {});
+    } catch (_) {}
+    showKeepAlive();
+  }
+  function showKeepAlive() {
+    const on = keepCtx && keepCtx.state === "running";
+    keepBtn.textContent = on ? "Работа в фоне: вкл" : "Работа в фоне: выкл";
+    keepBtn.className = on ? "" : "red";
+  }
+  showKeepAlive();
+  keepBtn.addEventListener("click", startKeepAlive);
+  document.addEventListener("pointerdown", startKeepAlive, true);
+  // Если браузер всё же приостановил звук — возобновляем.
+  setInterval(() => { if (keepCtx && keepCtx.state !== "running") keepCtx.resume().catch(() => {}); }, 5000);
   $("toggleBars").addEventListener("click", (e) => {
     const hide = e.target.textContent === "Скрыть панели";
     document.querySelectorAll(".bar").forEach((b) => (b.style.display = hide ? "none" : ""));
