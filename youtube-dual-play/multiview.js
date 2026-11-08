@@ -13,29 +13,37 @@ function videoId(text) {
   } catch (_) { return null; }
 }
 
-// Команды встроенному плееру YouTube (без загрузки внешних скриптов).
-function command(p, func, args = []) {
+// Команды окну (их выполняет inject.js внутри окна YouTube).
+function command(p, cmd, value) {
   const f = p.cell.querySelector("iframe");
-  if (f && f.contentWindow) {
-    f.contentWindow.postMessage(JSON.stringify({ event: "command", func, args }), "*");
-  }
+  if (f && f.contentWindow) f.contentWindow.postMessage({ __ytDual: "mv", cmd, value }, "*");
 }
+
+// "full" — полная страница YouTube (ваш аккаунт, история просмотров);
+// "embed" — встроенный плеер (легче, но история обычно не сохраняется).
+let playerType = "full";
 
 function render(p, id) {
   const box = p.cell.querySelector(".player");
-  if (p.id === id) return;
-  p.id = id;
+  const key = id && `${playerType}:${id}`;
+  if (p.key === key) return;
+  p.key = key;
   box.innerHTML = "";
   if (!id) {
     box.innerHTML = '<div class="empty">Вставьте ссылку ниже<br>или добавьте видео из другой вкладки через значок расширения</div>';
     return;
   }
   const f = document.createElement("iframe");
-  f.src = `https://www.youtube.com/embed/${id}?ytdual=1&enablejsapi=1&playsinline=1&autoplay=1&rel=0`;
+  f.src = playerType === "full"
+    ? `https://m.youtube.com/watch?v=${id}&ytdual=1`
+    : `https://www.youtube.com/embed/${id}?ytdual=1&playsinline=1&autoplay=1&rel=0`;
   f.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";
   f.allowFullscreen = true;
   f.referrerPolicy = "strict-origin-when-cross-origin";
-  f.addEventListener("load", () => command(p, "setVolume", [p.volume]));
+  f.addEventListener("load", () => {
+    command(p, "volume", p.volume / 100);
+    if (p.muted) command(p, "mute", true);
+  });
   box.appendChild(f);
 }
 
@@ -51,7 +59,7 @@ for (let i = 0; i < 4; i++) {
       <button title="Убрать">✕</button>
     </div>`;
   grid.appendChild(cell);
-  const p = { cell, id: undefined, volume: 100, muted: false };
+  const p = { cell, key: undefined, volume: 100, muted: false };
   players.push(p);
   const [input, muteBtn, vol, clearBtn] = cell.querySelectorAll(".bar > *");
 
@@ -62,10 +70,10 @@ for (let i = 0; i < 4; i++) {
   });
   muteBtn.addEventListener("click", () => {
     p.muted = !p.muted;
-    command(p, p.muted ? "mute" : "unMute");
+    command(p, "mute", p.muted);
     muteBtn.textContent = p.muted ? "🔇" : "🔊";
   });
-  vol.addEventListener("input", () => { p.volume = +vol.value; command(p, "setVolume", [p.volume]); });
+  vol.addEventListener("input", () => { p.volume = +vol.value; command(p, "volume", p.volume / 100); });
   clearBtn.addEventListener("click", () => setSlot(i, ""));
 }
 
@@ -75,12 +83,26 @@ async function setSlot(i, id) {
   await chrome.storage.local.set({ slots });
 }
 
-function load(slots) { players.forEach((p, i) => render(p, slots[i] || "")); }
-chrome.storage.local.get({ slots: ["", "", "", ""] }, ({ slots }) => load(slots));
-chrome.storage.onChanged.addListener((c) => { if (c.slots) load(c.slots.newValue); });
+let currentSlots = ["", "", "", ""];
+function load(slots) { currentSlots = slots; players.forEach((p, i) => render(p, slots[i] || "")); }
+chrome.storage.local.get({ slots: ["", "", "", ""], mvPlayer: "full" }, ({ slots, mvPlayer }) => {
+  playerType = mvPlayer;
+  document.getElementById("playerType").value = mvPlayer;
+  load(slots);
+});
+chrome.storage.onChanged.addListener((c) => {
+  if (c.mvPlayer) { playerType = c.mvPlayer.newValue; load(currentSlots); }
+  if (c.slots) load(c.slots.newValue);
+});
+document.getElementById("playerType").addEventListener("change", (e) =>
+  chrome.storage.local.set({ mvPlayer: e.target.value }));
 
-document.getElementById("playAll").addEventListener("click", () => players.forEach((p) => command(p, "playVideo")));
-document.getElementById("pauseAll").addEventListener("click", () => players.forEach((p) => command(p, "pauseVideo")));
+document.getElementById("playAll").addEventListener("click", () => players.forEach((p) => command(p, "play")));
+document.getElementById("pauseAll").addEventListener("click", () => players.forEach((p) => command(p, "pause")));
+document.getElementById("login").addEventListener("click", () => {
+  chrome.tabs.create({ url: "https://accounts.google.com/ServiceLogin?service=youtube&continue=https%3A%2F%2Fm.youtube.com%2F" });
+});
+document.getElementById("reload").addEventListener("click", () => location.reload());
 const toggle = document.getElementById("toggleBars");
 toggle.addEventListener("click", () => {
   const hide = toggle.textContent === "Скрыть панели";

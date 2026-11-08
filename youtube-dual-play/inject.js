@@ -18,7 +18,16 @@
   // mode: "normal" — как обычно; "silent" — все вкладки без звука;
   // "mix" — звук есть, но вкладки не отбирают его друг у друга.
   const state = { enabled: true, mode: "mix", speed: 0.25, quality: "tiny", lastUserAction: 0 };
-  const forcedMute = () => state.enabled && (state.mode === "silent" || state.mode === "mix");
+  // Мы внутри окна мультиэкрана? (в адресе ytdual=1 или нас встроила
+  // страница расширения). Адрес YouTube может потом поменять, поэтому
+  // проверяем сразу при загрузке.
+  const inMultiview = window.top !== window && (
+    /[?&]ytdual=1/.test(location.search) ||
+    Array.from(location.ancestorOrigins || []).some((o) => o.startsWith("chrome-extension://")));
+  // Окна мультиэкрана находятся в одной вкладке и звук друг у друга
+  // не отбирают, поэтому режим "mix" им не нужен.
+  const mode = () => (inMultiview && state.mode === "mix" ? "normal" : state.mode);
+  const forcedMute = () => state.enabled && (mode() === "silent" || mode() === "mix");
   const USER_WINDOW_MS = 1500;
 
   // ---------- 1. Страница всегда "видима" ----------
@@ -132,7 +141,7 @@
   };
   // Браузер разрешает включить звук только после касания вкладки.
   for (const type of ["pointerdown", "keydown", "touchend"]) {
-    window.addEventListener(type, () => { if (state.mode === "mix" && state.enabled) getCtx(); }, true);
+    window.addEventListener(type, () => { if (mode() === "mix" && state.enabled) getCtx(); }, true);
   }
 
   const mixGain = (v) => (v.__ytDualGain ? v.__ytDualGain.gain : null);
@@ -152,7 +161,7 @@
     v.__ytDualTrack = track;
   };
   const startMix = (v) => {
-    if (!(v instanceof HTMLVideoElement) || state.mode !== "mix" || !state.enabled) return;
+    if (!(v instanceof HTMLVideoElement) || mode() !== "mix" || !state.enabled) return;
     silence(v);
     if (!v.__ytDualStream) {
       try {
@@ -172,7 +181,7 @@
   for (const type of ["loadstart", "loadedmetadata", "play", "playing", "volumechange"]) {
     document.addEventListener(type, (e) => {
       silence(e.target);
-      if (state.mode === "mix") startMix(e.target);
+      if (mode() === "mix") startMix(e.target);
       else if (e.target && e.target.__ytDualGain) e.target.__ytDualGain.gain.value = 0;
     }, true);
   }
@@ -195,7 +204,6 @@
   const player = () => document.querySelector("#movie_player, .html5-video-player");
   // Только для плееров мультиэкрана (у них в адресе есть ytdual=1).
   // Обычные вкладки YouTube не трогаем.
-  const inMultiview = /[?&]ytdual=1/.test(location.search);
   // YouTube запоминает качество, скорость и громкость для всего сайта.
   // Мультиэкран не должен менять эти настройки в обычных вкладках.
   const SHARED_KEYS = /^yt-player-(quality|playback-rate|volume)/;
@@ -268,6 +276,33 @@
     return p;
   };
 
+  // ---------- Команды от мультиэкрана ----------
+  if (inMultiview) {
+    window.addEventListener("message", (e) => {
+      if (e.source !== window.parent || !e.data || e.data.__ytDual !== "mv") return;
+      state.lastUserAction = Date.now(); // это нажатие пользователя в мультиэкране
+      const media = document.querySelectorAll("video");
+      const { cmd, value } = e.data;
+      media.forEach((m) => {
+        if (cmd === "play") m.play().catch(() => {});
+        if (cmd === "pause") m.pause();
+        if (cmd === "mute") m.muted = !!value;
+        if (cmd === "volume") { m.__ytDualVolume = value; m.volume = value; }
+      });
+    });
+    // Полная страница YouTube в маленьком окне: растягиваем плеер на всё окно.
+    if (!/^\/embed\//.test(location.pathname)) {
+      const css = document.createElement("style");
+      css.textContent = `
+        .html5-video-player { position: fixed !important; inset: 0 !important; width: 100vw !important;
+          height: 100vh !important; z-index: 2147483647 !important; background: #000 !important; }
+        .html5-video-player video { width: 100% !important; height: 100% !important;
+          left: 0 !important; top: 0 !important; object-fit: contain !important; }
+        html, body { overflow: hidden !important; }`;
+      (document.head || document.documentElement).appendChild(css);
+    }
+  }
+
   // ---------- 3. Без окна "Видео приостановлено. Продолжить просмотр?" ----------
   setInterval(() => {
     if (!state.enabled) return;
@@ -304,7 +339,7 @@
     if (typeof d.mode === "string" && d.mode !== state.mode) {
       const was = state.mode;
       state.mode = d.mode;
-      if (d.mode !== "mix") stopMix();
+      if (mode() !== "mix") stopMix();
       if (forcedMute()) kick();
       else if (was !== "normal") document.querySelectorAll("video, audio").forEach((m) => { m.muted = false; });
     }
