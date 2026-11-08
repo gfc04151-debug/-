@@ -1,8 +1,12 @@
 const $ = (id) => document.getElementById(id);
 const MULTI_URL = chrome.runtime.getURL("multiview.html");
 
-chrome.storage.local.get({ enabled: true }, ({ enabled }) => { $("enabled").checked = enabled; });
+chrome.storage.local.get({ enabled: true, silent: false }, ({ enabled, silent }) => {
+  $("enabled").checked = enabled;
+  $("silent").checked = silent;
+});
 $("enabled").addEventListener("change", () => chrome.storage.local.set({ enabled: $("enabled").checked }));
+$("silent").addEventListener("change", () => chrome.storage.local.set({ silent: $("silent").checked }));
 
 async function openMulti() {
   const tabs = await chrome.tabs.query({ url: MULTI_URL });

@@ -15,7 +15,7 @@
   window.__ytDualPlay = true;
   try { document.documentElement.setAttribute("data-yt-dual", "1"); } catch (_) {}
 
-  const state = { enabled: true, lastUserAction: 0 };
+  const state = { enabled: true, silent: false, lastUserAction: 0 };
   const USER_WINDOW_MS = 1500;
 
   // ---------- 1. Страница всегда "видима" ----------
@@ -88,21 +88,45 @@
   document.addEventListener("ended", (e) => mark(e.target, false), true);
 
   // Пауза всё же случилась (например, Android отдал звук другой вкладке) —
-  // продолжаем. Но не больше 3 раз за 15 секунд, чтобы вкладки не
-  // "перетягивали" звук друг у друга бесконечно.
+  // продолжаем. Со звуком — не больше 3 раз за 15 секунд, чтобы вкладки не
+  // "перетягивали" звук друг у друга бесконечно. В тихом режиме вкладки
+  // друг другу не мешают, поэтому продолжаем всегда (не чаще раза в секунду).
   document.addEventListener("pause", (e) => {
     const v = e.target;
     if (!(v instanceof HTMLMediaElement)) return;
-    if (userRecentlyActed()) { v.__ytDualPlaying = false; return; }
+    if (userRecentlyActed()) { v.__ytDualPlaying = false; v.__ytDualUserPaused = true; return; }
     if (!state.enabled || v.ended || !v.__ytDualPlaying) return;
     const now = Date.now();
     v.__ytDualResumes = (v.__ytDualResumes || []).filter((t) => now - t < 15000);
-    if (v.__ytDualResumes.length >= 3) { v.__ytDualPlaying = false; return; }
+    if (!state.silent && v.__ytDualResumes.length >= 3) { v.__ytDualPlaying = false; return; }
     v.__ytDualResumes.push(now);
     setTimeout(() => {
       if (v.paused && !v.ended && !userRecentlyActed()) v.play().catch(() => {});
-    }, 300);
+    }, state.silent ? 1000 : 300);
   }, true);
+  document.addEventListener("play", (e) => {
+    if (e.target instanceof HTMLMediaElement) e.target.__ytDualUserPaused = false;
+  }, true);
+
+  // ---------- Тихий режим: звук выключен, видео играет ----------
+  const silence = (m) => {
+    if (state.enabled && state.silent && m instanceof HTMLMediaElement && !m.muted) m.muted = true;
+  };
+  for (const type of ["loadstart", "loadedmetadata", "play", "playing", "volumechange"]) {
+    document.addEventListener(type, (e) => silence(e.target), true);
+  }
+  // Видео, которое не запустилось само (вкладка открыта в фоне), запускаем.
+  const kick = () => {
+    if (!state.enabled || !state.silent) return;
+    document.querySelectorAll("video").forEach((v) => {
+      silence(v);
+      if (v.paused && !v.ended && !v.__ytDualUserPaused && v.readyState >= 2 && v.isConnected) {
+        v.play().catch(() => {});
+      }
+    });
+  };
+  document.addEventListener("canplay", kick, true);
+  setInterval(kick, 3000);
 
   // ---------- 3. Без окна "Видео приостановлено. Продолжить просмотр?" ----------
   setInterval(() => {
@@ -132,6 +156,11 @@
     if (e.source !== window || !e.data || e.data.__ytDual !== "to-page") return;
     const d = e.data;
     if (typeof d.enabled === "boolean") state.enabled = d.enabled;
+    if (typeof d.silent === "boolean") {
+      state.silent = d.silent;
+      if (d.silent) kick();
+      else document.querySelectorAll("video, audio").forEach((m) => { m.muted = false; });
+    }
     if (typeof d.volume === "number") applyVolume(d.volume);
     if (d.pauseAll) {
       state.lastUserAction = Date.now(); // это пауза по просьбе пользователя
