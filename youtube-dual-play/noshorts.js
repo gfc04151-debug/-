@@ -103,7 +103,10 @@
   // (за неделю / месяц / год). Так YouTube сразу ищет только свежие видео.
   // Если вы сами выбрали фильтры в поиске, их не трогаем.
   function searchFilter() {
-    const period = { 7: 3, 30: 4, 365: 5 }[maxAgeDays]; // 3 неделя, 4 месяц, 5 год
+    // У YouTube есть только «за неделю» (3), «за месяц» (4) и «за год» (5).
+    // Берём ближайший период, который не меньше выбранного срока,
+    // а лишнее (например, старше 2 месяцев) расширение скрывает само.
+    const period = !maxAgeDays ? 0 : maxAgeDays <= 7 ? 3 : maxAgeDays <= 30 ? 4 : maxAgeDays <= 365 ? 5 : 0;
     const inner = period ? [0x08, period, 0x10, 0x01] : [0x10, 0x01];
     return btoa(String.fromCharCode(0x12, inner.length, ...inner));
   }
