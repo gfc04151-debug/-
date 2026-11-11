@@ -32,6 +32,37 @@
     .join(",\n") + " { display: none !important; }";
 
   let enabled = true;
+  let minSeconds = 180; // скрывать видео короче этого (0 — не скрывать)
+
+  // Карточки обычных видео (без пунктов меню) — для проверки длины.
+  const VIDEO_CARDS = ITEMS.filter((s) => !/guide|pivot/.test(s)).join(",");
+  const DURATION = "badge-shape, ytd-thumbnail-overlay-time-status-renderer, ytm-thumbnail-overlay-time-status-renderer, .badge-shape-wiz__text";
+  function durationOf(card) {
+    for (const el of card.querySelectorAll(DURATION)) {
+      const t = (el.textContent || "").trim();
+      if (/^\d{1,2}(:\d{2}){1,2}$/.test(t)) {
+        return t.split(":").reduce((sum, n) => sum * 60 + +n, 0);
+      }
+    }
+    return null; // длина неизвестна (например, прямой эфир) — не трогаем
+  }
+  function sweepShort() {
+    if (!enabled || !minSeconds) return;
+    document.querySelectorAll(VIDEO_CARDS).forEach((card) => {
+      if (card.dataset.ytdualShort) return;
+      const sec = durationOf(card);
+      if (sec !== null && sec < minSeconds) {
+        card.style.display = "none";
+        card.dataset.ytdualShort = "1";
+      }
+    });
+  }
+  function unsweepShort() {
+    document.querySelectorAll("[data-ytdual-short]").forEach((el) => {
+      el.style.display = "";
+      delete el.dataset.ytdualShort;
+    });
+  }
 
   function applyStyle() {
     let el = document.getElementById(STYLE_ID);
@@ -67,23 +98,30 @@
   let timer = null;
   const observer = new MutationObserver(() => {
     if (timer) return;
-    timer = setTimeout(() => { timer = null; sweep(); applyStyle(); }, 300);
+    timer = setTimeout(() => { timer = null; sweep(); sweepShort(); applyStyle(); }, 300);
   });
 
   function start() {
     applyStyle();
     sweep();
+    sweepShort();
     observer.observe(document.documentElement, { childList: true, subtree: true });
   }
 
-  chrome.storage.local.get({ hideShorts: true }, ({ hideShorts }) => {
+  chrome.storage.local.get({ hideShorts: true, minMinutes: 3 }, ({ hideShorts, minMinutes }) => {
     enabled = hideShorts;
+    minSeconds = minMinutes * 60;
     if (enabled) start();
   });
   chrome.storage.onChanged.addListener((c) => {
+    if (c.minMinutes) {
+      minSeconds = c.minMinutes.newValue * 60;
+      unsweepShort();
+      sweepShort();
+    }
     if (!c.hideShorts) return;
     enabled = c.hideShorts.newValue;
     if (enabled) start();
-    else { observer.disconnect(); applyStyle(); unsweep(); }
+    else { observer.disconnect(); applyStyle(); unsweep(); unsweepShort(); }
   });
 })();

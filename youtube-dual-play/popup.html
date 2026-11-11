@@ -33,6 +33,11 @@
   </div>
   <hr>
   <label>Скрывать Shorts (поиск, главная, рекомендации) <input type="checkbox" id="hideShorts"></label>
+  <label>Скрывать видео короче
+    <select id="minMinutes">
+      <option value="0">не скрывать</option><option value="1">1 мин</option><option value="2">2 мин</option>
+      <option value="3">3 мин</option><option value="5">5 мин</option><option value="10">10 мин</option>
+    </select></label>
   <label>Не ставить на паузу в фоне <input type="checkbox" id="enabled"></label>
   <div class="hint">Звук в обычных вкладках YouTube (мультиэкран всегда без звука):</div>
   <label class="radio"><span>Обычный звук</span><input type="radio" name="mode" value="normal"></label>
