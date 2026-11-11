@@ -79,8 +79,9 @@
     }
     return null; // дата неизвестна — не трогаем
   }
+  const isSearch = () => location.pathname === "/results";
   function sweepOld() {
-    if (!enabled || !maxAgeDays) return;
+    if (!enabled || !maxAgeDays || !isSearch()) return;
     document.querySelectorAll(VIDEO_CARDS).forEach((card) => {
       if (card.dataset.ytdualOld) return;
       const days = ageDays(card);
@@ -96,6 +97,28 @@
       delete el.dataset.ytdualOld;
     });
   }
+
+  // ---------- Фильтр поиска YouTube ----------
+  // В поиск добавляем фильтр самого YouTube: «Тип: видео» и «Дата загрузки»
+  // (за неделю / месяц / год). Так YouTube сразу ищет только свежие видео.
+  // Если вы сами выбрали фильтры в поиске, их не трогаем.
+  function searchFilter() {
+    const period = { 7: 3, 30: 4, 365: 5 }[maxAgeDays]; // 3 неделя, 4 месяц, 5 год
+    const inner = period ? [0x08, period, 0x10, 0x01] : [0x10, 0x01];
+    return btoa(String.fromCharCode(0x12, inner.length, ...inner));
+  }
+  function fixSearchUrl() {
+    if (!enabled || !isSearch() || window.top !== window) return;
+    const u = new URL(location.href);
+    if (u.searchParams.has("sp") || !u.searchParams.get("search_query")) return;
+    u.searchParams.set("sp", searchFilter());
+    location.replace(u.toString());
+  }
+  // YouTube открывает поиск без перезагрузки страницы — проверяем адрес.
+  let lastUrl = location.href;
+  setInterval(() => {
+    if (location.href !== lastUrl) { lastUrl = location.href; fixSearchUrl(); }
+  }, 400);
 
   function unsweepShort() {
     document.querySelectorAll("[data-ytdual-short]").forEach((el) => {
@@ -153,6 +176,7 @@
     enabled = st.hideShorts;
     minSeconds = st.minMinutes * 60;
     maxAgeDays = st.maxAgeDays;
+    fixSearchUrl();
     if (enabled) start();
   });
   chrome.storage.onChanged.addListener((c) => {
