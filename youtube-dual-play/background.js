@@ -23,9 +23,17 @@ async function setupRules() {
     }]
   });
 }
-chrome.runtime.onInstalled.addListener(() => {
-  setupRules();
-  // Обычные вкладки — с обычным звуком.
-  chrome.storage.local.set({ mode: "normal" });
+chrome.runtime.onInstalled.addListener(setupRules);
+
+// ---------- Популярные ролики канала (для мультиэкрана) ----------
+importScripts("channel.js");
+chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
+  if (msg.type !== "channelTop") return;
+  chrome.storage.local.get({ minMinutes: 3 }, ({ minMinutes }) => {
+    topChannelVideos(msg.channel, msg.days, minMinutes * 60)
+      .then((r) => reply({ ok: true, ...r }))
+      .catch((e) => reply({ ok: false, error: e.message }));
+  });
+  return true; // ответ придёт позже
 });
 chrome.runtime.onStartup.addListener(setupRules);

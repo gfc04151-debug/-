@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "YouTube Dual Play",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Несколько видео YouTube одновременно: мультиэкран 2×2, без автопаузы, без замедления в фоне, своя громкость у каждого видео.",
   "permissions": [
     "storage",

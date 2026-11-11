@@ -1,6 +1,27 @@
 // Изолированный content script: передаёт настройки между popup и страницей.
 const send = (data) => window.postMessage({ __ytDual: "to-page", ...data }, "*");
 
+// ---------- Резервная копия настроек ----------
+// Настройки расширения пропадают, если его удалить и поставить заново.
+// Поэтому храним копию на сайте YouTube и восстанавливаем её после переустановки.
+const BACKUP_KEY = "ytdual-settings-backup";
+const SETTINGS = ["enabled", "mode", "speed", "quality", "hideShorts", "minMinutes", "maxAgeDays",
+  "slots", "mvChannel", "mvDays"];
+if (window === window.top) {
+  chrome.storage.local.get(null, (st) => {
+    if (st._init) return saveBackup();
+    let backup = null;
+    try { backup = JSON.parse(localStorage.getItem(BACKUP_KEY) || "null"); } catch (_) {}
+    chrome.storage.local.set({ ...(backup || {}), _init: true });
+  });
+  chrome.storage.onChanged.addListener(() => saveBackup());
+}
+function saveBackup() {
+  chrome.storage.local.get(SETTINGS, (st) => {
+    try { if (Object.keys(st).length) localStorage.setItem(BACKUP_KEY, JSON.stringify(st)); } catch (_) {}
+  });
+}
+
 chrome.storage.local.get({ enabled: true, mode: "normal", speed: 0.25, quality: "tiny" },
   ({ enabled, mode, speed, quality }) => send({ enabled, mode, speed, quality }));
 chrome.storage.onChanged.addListener((changes) => {

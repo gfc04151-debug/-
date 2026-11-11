@@ -23,7 +23,12 @@
     .empty { position: absolute; inset: 0; display: grid; place-items: center; color: #777; text-align: center; padding: 10px; }
     .bar { display: flex; gap: 4px; padding: 4px; align-items: center; background: #1c1c1c; }
     .bar input { flex: 1; min-width: 0; font: inherit; padding: 6px; border-radius: 6px; border: 1px solid #333; background: #000; color: #fff; }
-    .bar button { padding: 6px 9px; }`;
+    .bar button { padding: 6px 9px; }
+    #chan { display: flex; gap: 6px; padding: 0 6px 6px; background: #181818; flex-wrap: wrap; align-items: center; }
+    #chan input { flex: 1; min-width: 180px; font: inherit; padding: 8px; border-radius: 8px; border: 1px solid #333; background: #000; color: #fff; }
+    #chan select { font: inherit; border: 0; border-radius: 8px; padding: 8px; background: #333; color: #fff; }
+    #chanStatus { width: 100%; color: #aaa; font-size: 13px; }
+    #chanStatus:empty { display: none; }`;
 
   document.documentElement.innerHTML = `
     <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -38,6 +43,15 @@
         <button id="keepAlive">Работа в фоне: выкл</button>
         <button id="toggleBars">Скрыть панели</button>
       </header>
+      <div id="chan">
+        <input id="chanUrl" type="text" placeholder="Ссылка на канал, например https://www.youtube.com/@MrBeast">
+        <select id="chanDays">
+          <option value="7">за 1 неделю</option><option value="14">за 2 недели</option>
+          <option value="30">за 1 месяц</option><option value="60">за 2 месяца</option><option value="90">за 3 месяца</option>
+        </select>
+        <button class="red" id="chanGo">4 популярных</button>
+        <div id="chanStatus"></div>
+      </div>
       <div id="grid"></div>
     </body>`;
 
@@ -110,6 +124,33 @@
   const load = (slots) => players.forEach((p, i) => render(p, slots[i] || ""));
   chrome.storage.local.get({ slots: ["", "", "", ""] }, ({ slots }) => load(slots));
   chrome.storage.onChanged.addListener((c) => { if (c.slots) load(c.slots.newValue); });
+
+  // ---------- 4 популярных ролика канала ----------
+  const fmtViews = (n) => n >= 1e6 ? (n / 1e6).toFixed(1).replace(".0", "") + " млн" : n >= 1e3 ? Math.round(n / 1e3) + " тыс." : String(n);
+  chrome.storage.local.get({ mvChannel: "", mvDays: 14 }, ({ mvChannel, mvDays }) => {
+    $("chanUrl").value = mvChannel;
+    $("chanDays").value = String(mvDays);
+  });
+  async function loadChannel() {
+    const channel = $("chanUrl").value.trim();
+    const days = +$("chanDays").value;
+    if (!channel) { $("chanStatus").textContent = "Вставьте ссылку на канал."; return; }
+    chrome.storage.local.set({ mvChannel: channel, mvDays: days });
+    $("chanStatus").textContent = "Ищу популярные ролики…";
+    const r = await chrome.runtime.sendMessage({ type: "channelTop", channel, days });
+    if (!r || !r.ok) { $("chanStatus").textContent = "Ошибка: " + ((r && r.error) || "нет ответа"); return; }
+    const list = [...r.videos, ...r.extra];
+    if (!list.length) { $("chanStatus").textContent = "На канале не нашлось роликов."; return; }
+    await chrome.storage.local.set({ slots: [0, 1, 2, 3].map((i) => (list[i] ? list[i].id : "")) });
+    let text = list.map((v, i) => `${i + 1}) ${v.title.slice(0, 40)} — ${fmtViews(v.views)} просм.`).join("   ");
+    if (r.extra.length) {
+      text = `Подходящих роликов за этот период: ${r.videos.length}. ` +
+        `Остальные окна — самые популярные из более старых.   ` + text;
+    }
+    $("chanStatus").textContent = text;
+  }
+  $("chanGo").addEventListener("click", loadChannel);
+  $("chanUrl").addEventListener("keydown", (e) => { if (e.key === "Enter") loadChannel(); });
 
   $("playAll").addEventListener("click", () => players.forEach((p) => command(p, "play")));
   $("pauseAll").addEventListener("click", () => players.forEach((p) => command(p, "pause")));
