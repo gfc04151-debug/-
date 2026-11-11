@@ -12,6 +12,8 @@ chrome.storage.local.get({ speed: 0.25, quality: "tiny" }, ({ speed, quality }) 
 });
 $("speed").addEventListener("change", () => chrome.storage.local.set({ speed: +$("speed").value }));
 $("quality").addEventListener("change", () => chrome.storage.local.set({ quality: $("quality").value }));
+chrome.storage.local.get({ hideShorts: true }, ({ hideShorts }) => { $("hideShorts").checked = hideShorts; });
+$("hideShorts").addEventListener("change", () => chrome.storage.local.set({ hideShorts: $("hideShorts").checked }));
 $("enabled").addEventListener("change", () => chrome.storage.local.set({ enabled: $("enabled").checked }));
 modeInputs.forEach((r) => r.addEventListener("change", () => {
   chrome.storage.local.set({ mode: r.value });
