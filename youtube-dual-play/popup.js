@@ -15,6 +15,8 @@ $("quality").addEventListener("change", () => chrome.storage.local.set({ quality
 chrome.storage.local.get({ hideShorts: true }, ({ hideShorts }) => { $("hideShorts").checked = hideShorts; });
 chrome.storage.local.get({ minMinutes: 3 }, ({ minMinutes }) => { $("minMinutes").value = String(minMinutes); });
 $("minMinutes").addEventListener("change", () => chrome.storage.local.set({ minMinutes: +$("minMinutes").value }));
+chrome.storage.local.get({ maxAgeDays: 30 }, ({ maxAgeDays }) => { $("maxAgeDays").value = String(maxAgeDays); });
+$("maxAgeDays").addEventListener("change", () => chrome.storage.local.set({ maxAgeDays: +$("maxAgeDays").value }));
 $("hideShorts").addEventListener("change", () => chrome.storage.local.set({ hideShorts: $("hideShorts").checked }));
 $("enabled").addEventListener("change", () => chrome.storage.local.set({ enabled: $("enabled").checked }));
 modeInputs.forEach((r) => r.addEventListener("change", () => {

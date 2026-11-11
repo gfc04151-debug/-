@@ -57,6 +57,46 @@
       }
     });
   }
+  // ---------- Старые видео ----------
+  let maxAgeDays = 30; // скрывать видео старше этого (0 — не скрывать)
+  const META = "#metadata-line, .inline-metadata-item, yt-content-metadata-view-model, " +
+    "ytm-badge-and-byline-renderer, .YtmBadgeAndBylineRendererItemByline, .yt-core-attributed-string";
+  // «3 days ago», «5mo ago», «1 month ago», «5 дней назад», «5 мес. назад», «год назад»...
+  const AGO = /(\d+|an?|один|одна|одну)?\s*(?<![a-zа-яё])(seconds?|minutes?|hours?|days?|weeks?|months?|years?|mo|[ywdhms]|секунд[а-яё]*|минут[а-яё]*|мин\.?|час[а-яё]*|ч\.?|дн[а-яё]*\.?|день|недел[а-яё]*|нед\.?|месяц[а-яё]*|мес\.?|год[а-яё]*|г\.?|лет)\s+(ago|назад)/i;
+  const UNIT_DAYS = [
+    [/^(mo|month|мес)/i, 30], [/^(s|m|h|секунд|минут|мин|час|ч)/i, 0], [/^(d|дн|день)/i, 1],
+    [/^(w|недел|нед)/i, 7], [/^(y|год|г|лет)/i, 365],
+  ];
+  function ageDays(card) {
+    const texts = [...card.querySelectorAll(META)].map((e) => e.textContent);
+    if (!texts.length) texts.push(card.textContent);
+    for (const t of texts) {
+      const m = AGO.exec(t || "");
+      if (!m) continue;
+      const n = /^\d+$/.test(m[1] || "") ? +m[1] : 1;
+      const unit = UNIT_DAYS.find(([re]) => re.test(m[2]));
+      if (unit) return n * unit[1];
+    }
+    return null; // дата неизвестна — не трогаем
+  }
+  function sweepOld() {
+    if (!enabled || !maxAgeDays) return;
+    document.querySelectorAll(VIDEO_CARDS).forEach((card) => {
+      if (card.dataset.ytdualOld) return;
+      const days = ageDays(card);
+      if (days !== null && days >= maxAgeDays) {
+        card.style.display = "none";
+        card.dataset.ytdualOld = "1";
+      }
+    });
+  }
+  function unsweepOld() {
+    document.querySelectorAll("[data-ytdual-old]").forEach((el) => {
+      el.style.display = "";
+      delete el.dataset.ytdualOld;
+    });
+  }
+
   function unsweepShort() {
     document.querySelectorAll("[data-ytdual-short]").forEach((el) => {
       el.style.display = "";
@@ -98,22 +138,29 @@
   let timer = null;
   const observer = new MutationObserver(() => {
     if (timer) return;
-    timer = setTimeout(() => { timer = null; sweep(); sweepShort(); applyStyle(); }, 300);
+    timer = setTimeout(() => { timer = null; sweep(); sweepShort(); sweepOld(); applyStyle(); }, 300);
   });
 
   function start() {
     applyStyle();
     sweep();
     sweepShort();
+    sweepOld();
     observer.observe(document.documentElement, { childList: true, subtree: true });
   }
 
-  chrome.storage.local.get({ hideShorts: true, minMinutes: 3 }, ({ hideShorts, minMinutes }) => {
-    enabled = hideShorts;
-    minSeconds = minMinutes * 60;
+  chrome.storage.local.get({ hideShorts: true, minMinutes: 3, maxAgeDays: 30 }, (st) => {
+    enabled = st.hideShorts;
+    minSeconds = st.minMinutes * 60;
+    maxAgeDays = st.maxAgeDays;
     if (enabled) start();
   });
   chrome.storage.onChanged.addListener((c) => {
+    if (c.maxAgeDays) {
+      maxAgeDays = c.maxAgeDays.newValue;
+      unsweepOld();
+      sweepOld();
+    }
     if (c.minMinutes) {
       minSeconds = c.minMinutes.newValue * 60;
       unsweepShort();
@@ -122,6 +169,6 @@
     if (!c.hideShorts) return;
     enabled = c.hideShorts.newValue;
     if (enabled) start();
-    else { observer.disconnect(); applyStyle(); unsweep(); unsweepShort(); }
+    else { observer.disconnect(); applyStyle(); unsweep(); unsweepShort(); unsweepOld(); }
   });
 })();
